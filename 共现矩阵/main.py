@@ -38,6 +38,8 @@ def handle_lines(lines: List[str]):
     allStemming = stemming_lines(newLines)
     allStemming.sort()
     matrix = create_occurrence_matrix(newLines, allStemming)
+    matrix = sort_matrix(matrix)
+
     save_matrix2csv(matrix)
 
 
@@ -64,6 +66,8 @@ def create_occurrence_matrix(lines: List[str], stemming: List[str]) -> List[List
         for i in range(len(stem)-1):
             for j in range(i+1, len(stem)):
                 matrix[stemmingMap[stem[j]]][stemmingMap[stem[i]]] += 1
+                matrix[stemmingMap[stem[i]]][stemmingMap[stem[j]]] += 1
+
     return matrix
 
 
@@ -113,6 +117,7 @@ def remove_stopwords_from_list(words: List[str]) -> List[str]:
         for item in stop:
             if word == item:
                 flag = True
+                break
         if not flag:
             newWords.append(word)
 
@@ -130,6 +135,35 @@ def get_list_by_count(count: int, word: str) -> List:
     for index in range(count):
         row.append(0)
     return row
+
+
+def sort_matrix(matrix: List[List]) -> List[List]:
+    sumList = []
+
+    count = len(matrix)
+    for i in range(1, count):
+        sum = 0
+        for j in range(1, count):
+            sum += matrix[i][j]
+        sumList.append([sum, i])
+
+    sumList = sorted(sumList, key=lambda item: item[0], reverse=True)
+
+    newMatrixHead = ['']
+    for item in sumList:
+        newMatrixHead.append(matrix[0][item[1]])
+
+    newMatrix = [newMatrixHead]
+    for i in sumList:
+        row = [matrix[0][i[1]]]
+        for j in sumList:
+            row.append(matrix[i[1]][j[1]])
+        newMatrix.append(row)
+
+    for index in range(1, len(newMatrix)):
+        newMatrix[index][index] = 0
+
+    return newMatrix
 
 
 def save_matrix2csv(matrix: List[List]):
