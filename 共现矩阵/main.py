@@ -28,12 +28,16 @@ def handle_lines(lines: List[str]):
     newLines = []
 
     for line in lines:
-        line = line.strip()
+        if "..." in line:
+            continue
         line = re.sub(r'http\S+', '', line)
-        line = re.sub('[^a-zA-Z]+', ' ', line)
-        line = line.strip()
-        if line != "" and len(line.split(" ")) > 10:
-            newLines.append(line)
+        line = re.sub('[^a-zA-Z.?!]+', ' ', line)
+        sentences = get_sentence_from_line(line)
+        if len(sentences) == 0:
+            continue
+        else:
+            for sen in sentences:
+                newLines.append(sen)
 
     allStemming = stemming_lines(newLines)
     allStemming.sort()
@@ -41,6 +45,40 @@ def handle_lines(lines: List[str]):
     matrix = sort_matrix(matrix)
 
     save_matrix2csv(matrix)
+
+
+def get_sentence_from_line(line: str) -> List[str]:
+    sentenceList = []
+    if "." in line:
+        for sen in line.split("."):
+            sentenceList.append(sen)
+    else:
+        sentenceList.append(line)
+
+    questionList = []
+    for sen in sentenceList:
+        if "?" in sen:
+            for sen in sen.split("?"):
+                questionList.append(sen)
+        else:
+            questionList.append(sen)
+
+    exclamationList = []
+    for question in questionList:
+        if "!" in question:
+            for q in question.split("!"):
+                exclamationList.append(q)
+        else:
+            exclamationList.append(question)
+
+    result = []
+    for exclamation in exclamationList:
+        s = re.sub('[^a-zA-Z]+', ' ', exclamation)
+        s.strip()
+        if s != "" and len(s) > 20:
+            result.append(s)
+
+    return result
 
 
 def create_occurrence_matrix(lines: List[str], stemming: List[str]) -> List[List]:
