@@ -8,6 +8,7 @@ from nltk.corpus import stopwords
 
 TXT_FILE_PATH = r"./source/欧洲芯片法.txt"
 SAVE_CSV_FILE_PATH = r"./matrix.csv"
+TOP_NUMBER = 100
 
 
 def read_content_from_file(path: str) -> List[str]:
@@ -213,8 +214,18 @@ def save_matrix2csv(matrix: List[List]):
     if os.path.exists(SAVE_CSV_FILE_PATH):
         os.remove(SAVE_CSV_FILE_PATH)
 
+    saveMatrix = []
+    if (len(matrix) + 1) < TOP_NUMBER:
+        saveMatrix = matrix
+    else:
+        for i in range(TOP_NUMBER+1):
+            row = []
+            for j in range(TOP_NUMBER+1):
+                row.append(matrix[i][j])
+            saveMatrix.append(row)
+
     with open(SAVE_CSV_FILE_PATH, 'w', encoding='utf-8')as m:
-        for item in matrix:
+        for item in saveMatrix:
             for i in item:
                 m.write(str(i) + ",")
             m.write("\n")
