@@ -1,5 +1,4 @@
 import csv
-import logging
 from typing import *
 import logging
 
@@ -8,23 +7,29 @@ logging.basicConfig(
     format='%(levelname)s %(message)s',
 )
 
+
 NEW_CSV_PATH = r"./data/new.csv"
 OLD_CSV_PATH = r"./data/old.csv"
+SAVE_CSV_PATH = r"./data/save.csv"
 
 
 class Township:
-    def __init__(self, value: str):
-        self.value = value
+    def __init__(self, inner_id: str, code: str, name: str):
+        self.inner_id = inner_id
+        self.code = code
+        self.name = name
 
 
 class District:
-    def __init__(self, value: str):
-        self.value = value
+    def __init__(self, inner_id: str, code: str, name: str):
+        self.inner_id = inner_id
+        self.code = code
+        self.name = name
         self.township = []
 
     def add_township(self, township: Township) -> Township:
         for t in self.township:
-            if t.value == township.value:
+            if t.name == township.name:
                 return t
 
         self.township.append(township)
@@ -32,20 +37,22 @@ class District:
 
     def get_township(self, township_name: str) -> Township | None:
         for t in self.township:
-            if t.value == township_name:
+            if t.name == township_name:
                 return t
 
         return None
 
 
 class City:
-    def __init__(self, value: str):
-        self.value = value
+    def __init__(self, inner_id: str, code: str, name: str):
+        self.inner_id = inner_id
+        self.code = code
+        self.name = name
         self.district = []
 
     def add_district(self, district: District) -> District:
         for d in self.district:
-            if d.value == district.value:
+            if d.name == district.name:
                 return d
 
         self.district.append(district)
@@ -53,20 +60,22 @@ class City:
 
     def get_district(self, district_name: str) -> District | None:
         for d in self.district:
-            if d.value == district_name:
+            if d.name == district_name:
                 return d
 
         return None
 
 
 class Prov:
-    def __init__(self, value: str):
-        self.value = value
+    def __init__(self, inner_id: str, code: str, name: str):
+        self.inner_id = inner_id
+        self.code = code
+        self.name = name
         self.city = []
 
     def add_city(self, city: City) -> City:
         for c in self.city:
-            if c.value == city.value:
+            if c.name == city.name:
                 return c
 
         self.city.append(city)
@@ -74,7 +83,7 @@ class Prov:
 
     def get_city_by_name(self, city_name: str) -> City | None:
         for c in self.city:
-            if c.value == city_name:
+            if c.name == city_name:
                 return c
 
         return None
@@ -86,16 +95,20 @@ def read_new_csv() -> List[Dict]:
         reader = csv.DictReader(f)
         for row in reader:
             new_data.append({
-                "prov_code": row["prov_code"],
+                "prov_inner_id": "",
+                "prov_code": "",
                 "prov": row["prov_name"],
 
-                "city_code": row["city_code"],
+                "city_inner_id": "",
+                "city_code": "",
                 "city": row["city_name"],
 
-                "district_code": row["district_code"],
+                "district_inner_id": "",
+                "district_code": "",
                 "district": row["district_name"],
 
-                "township_code": row["township_code"],
+                "township_inner_id": "",
+                "township_code": "",
                 "township": row["township_name"],
             })
 
@@ -108,15 +121,19 @@ def read_old_csv() -> List[Dict]:
         reader = csv.DictReader(f)
         for row in reader:
             old_data.append({
+                "prov_inner_id": row["prov_inner_id"],
                 "prov_code": row["prov_code"],
                 "prov": row["prov_nm"],
 
+                "city_inner_id": row["city_inner_id"],
                 "city_code": row["city_code"],
                 "city": row["city_nm"],
 
+                "district_inner_id": row["district_inner_id"],
                 "district_code": row["district_code"],
                 "district": row["district_nm"],
 
+                "township_inner_id": row["street_town_inner_id"],
                 "township_code": row["street_town_code"],
                 "township": row["street_town_nm"],
             })
@@ -130,65 +147,125 @@ def convert_list_to_class(data: List[Dict]) -> List[Prov]:
         prov = None
         flag = True
         for i in result:
-            if i.value == item["prov"]:
+            if i.name == item["prov"]:
                 prov = i
                 flag = False
                 break
         if flag:
-            prov = Prov(item["prov"])
+            prov = Prov(item["prov_inner_id"], item["prov_code"], item["prov"])
             result.append(prov)
 
-        city = prov.add_city(City(item["city"]))
-        district = city.add_district(District(item["district"]))
-        district.add_township(Township(item["township"]))
+        city = prov.add_city(City(item["city_inner_id"], item["city_code"], item["city"]))
+        district = city.add_district(District(item["district_inner_id"], item["district_code"], item["district"]))
+        district.add_township(Township(item["township_inner_id"], item["township_code"], item["township"]))
 
     return result
 
 
-def compare_old2new(old: List[Prov], new: List[Prov]):
+def delete_old_invalid_prov(old: List[Prov], new: List[Prov]):
     for o in old:
         prov_flag = True
         for n in new:
-            if o.value == n.value:
-                compare_prov_old2new(o, n)
+            if o.name == n.name:
+                _delete_old_invalid_city(o, n)
                 prov_flag = False
                 break
         if prov_flag:
-            logging.info("old data not in new data, prov name: %s" % o.value)
+            logging.info("old data delete invalid data, prov_name: %s" % o.name)
+            old.remove(o)
 
 
-def compare_prov_old2new(old: Prov, new: Prov):
+def _delete_old_invalid_city(old: Prov, new: Prov):
     for oc in old.city:
-        nc = new.get_city_by_name(oc.value)
+        nc = new.get_city_by_name(oc.name)
         if nc is None:
-            logging.info("old data not in new data, prov_name: %s city name: %s" % (old.value, oc.value))
+            logging.info("old data delete invalid data, city_name: %s" % oc.name)
+            old.city.remove(oc)
             break
         else:
-            compare_city_old2new(oc, nc, old.value)
+            _delete_old_invalid_district(oc, nc)
 
 
-def compare_city_old2new(old: City, new: City, prov: str):
+def _delete_old_invalid_district(old: City, new: City):
     for od in old.district:
-        nd = new.get_district(od.value)
+        nd = new.get_district(od.name)
         if nd is None:
-            logging.info(
-                "old data not in new data, prov_name: %s city name: %s district: %s" %
-                (prov, old.value, od.value)
-            )
+            logging.info("old data delete invalid data, district_name: %s" % od.name)
+            old.district.remove(od)
             break
         else:
-            compare_district_old2new(od, nd, prov, od.value)
+            _delete_old_invalid_township(od, nd)
 
 
-def compare_district_old2new(old: District, new: District, prov: str, city: str):
+def _delete_old_invalid_township(old: District, new: District):
     for ot in old.township:
-        nt = new.get_township(ot.value)
+        nt = new.get_township(ot.name)
         if nt is None:
-            logging.info(
-                "old data not in new data, prov_name: %s city name: %s district: %s township: %s" %
-                (prov, city, old.value, ot.value)
-            )
+            logging.info("old data delete invalid data, township_name: %s" % ot.name)
+            old.township.remove(ot)
             break
+
+
+def add_old_new_prov(old: List[Prov], new: List[Prov]):
+    for n in new:
+        prov_flag = True
+        for o in old:
+            if o.name == n.name:
+                _add_old_new_city(o, n)
+                prov_flag = False
+                break
+        if prov_flag:
+            logging.info("old data add new data, prov_name: %s" % n.name)
+            old.append(n)
+
+
+def _add_old_new_city(old: Prov, new: Prov):
+    for nc in new.city:
+        oc = old.get_city_by_name(nc.name)
+        if oc is None:
+            logging.info("old data add new data, city_name: %s" % nc.name)
+            old.city.append(nc)
+            break
+        else:
+            _add_old_new_district(oc, nc)
+
+
+def _add_old_new_district(old: City, new: City):
+    for nd in new.district:
+        od = old.get_district(nd.name)
+        if od is None:
+            logging.info("old data add new data, district_name: %s" % nd.name)
+            old.district.append(nd)
+            break
+        else:
+            _add_old_new_township(od, nd)
+
+
+def _add_old_new_township(old: District, new: District):
+    for nt in new.township:
+        ot = old.get_township(nt.name)
+        if ot is None:
+            logging.info("old data add new data, township_name: %s" % nt.name)
+            old.township.append(nt)
+            break
+
+
+def save_class_to_csv(data: List[Prov]):
+    with open(SAVE_CSV_PATH, encoding='utf-8', mode="w+")as f:
+        f.write(
+            "prov_inner_id,prov_code,prov_name,city_inner_id,city_code,city_name,district_inner_id,district_code,"
+            "district_name,township_inner_id,township_code,township_name\n "
+        )
+
+        for prov in data:
+            prov_line = prov.inner_id + "," + prov.code + "," + prov.name + ","
+            for city in prov.city:
+                city_line = city.inner_id + "," + city.code + "," + city.name + ","
+                for district in city.district:
+                    district_line = district.inner_id + "," + district.code + "," + district.name + ","
+                    for township in district.township:
+                        township_line = township.inner_id + "," + township.code + "," + township.name + "\n"
+                        f.write(prov_line + city_line + district_line + township_line)
 
 
 def main():
@@ -198,8 +275,10 @@ def main():
     new_data = read_new_csv()
     new = convert_list_to_class(new_data)
 
-    compare_old2new(old, new)
-    # compare_old2new(new, old)
+    delete_old_invalid_prov(old, new)
+    add_old_new_prov(old, new)
+
+    save_class_to_csv(old)
 
 
 if __name__ == '__main__':
